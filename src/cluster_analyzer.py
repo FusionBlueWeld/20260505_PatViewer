@@ -18,7 +18,7 @@ def perform_clustering(output_root: Path, cluster_out_dir: Path):
 
     all_keywords = []
     
-    # 1. output/patents/ 配下の全JSONからデータを収集
+    # 1. JSONからデータ収集
     json_files = list(output_root.rglob("*.json"))
     for file_path in json_files:
         try:
@@ -49,21 +49,21 @@ def perform_clustering(output_root: Path, cluster_out_dir: Path):
 
     print(f"収集されたキーワード総数: {len(all_keywords)} 件")
 
-    # 2. EmbeddingをNumPy行列に変換
+    # 2. 行列化
     X = np.array([item["embedding"] for item in all_keywords])
 
-    # クラスタ数の自動決定 (キーワード10個につき1クラスタ程度、最大50)
+    # クラスタ数決定
     n_clusters = max(2, min(len(all_keywords) // 10, 50))
     print(f"K-means クラスタ数: {n_clusters}")
 
-    # 3. K-meansクラスタリングの実行
+    # 3. KMeans
     kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
     labels = kmeans.fit_predict(X)
     
-    # ★重心（セントロイド）の取得
+    # 重心取得
     centroids = kmeans.cluster_centers_
 
-    # 4. クラスタごとの所属数をカウントし、多い順にソートしてIDを振る
+    # 4. クラスタID再割当
     cluster_counts = {}
     for label in labels:
         cluster_counts[label] = cluster_counts.get(label, 0) + 1
@@ -75,13 +75,11 @@ def perform_clustering(output_root: Path, cluster_out_dir: Path):
     for idx, label in enumerate(sorted_labels):
         c_id = f"kw{idx:03d}"
         label_to_id[label] = c_id
-        # 重心ベクトル（NumPy配列）をJSONで保存可能なPythonのリストに変換
-        label_to_centroid[c_id] = centroids[label].tolist()
+        label_to_centroid[c_id] = centroids[label].tolist()  # JSON用変換
 
-    # 5. クラスタの構築とLLMによる命名
+    # 5. クラスタ構築（embedding除去）
     cluster_data_map = {label_to_id[l]: [] for l in sorted_labels}
     
-    # データをマップに振り分け（JSON更新用のIDも記録）
     for i, item in enumerate(all_keywords):
         c_id = label_to_id[labels[i]]
         item["cluster_id"] = c_id
@@ -89,32 +87,30 @@ def perform_clustering(output_root: Path, cluster_out_dir: Path):
             "keyword": item["keyword"],
             "description": item["description"],
             "patent_name": item["patent_name"],
-            "category": item["category"],
-            # ★UI側で描画時の座標計算に使えるよう、個別のベクトルも保持しておく
-            "embedding": item["embedding"]
+            "category": item["category"]
+            # embeddingは保存しない（軽量化）
         })
 
     cluster_output = []
     print("\n各クラスタの名称をLLMで生成中...")
     
     for c_id, members in cluster_data_map.items():
-        # LLMでクラスタ名を生成
         cluster_name = generate_cluster_name(members)
         cluster_output.append({
             "cluster_id": c_id,
             "cluster_name": cluster_name,
-            "centroid": label_to_centroid[c_id],  # ★計算した重心ベクトルを保存
+            "centroid": label_to_centroid[c_id],
             "items": members
         })
         print(f"  [{c_id}] {cluster_name} (所属数: {len(members)})")
 
-    # 6. output/cluster/kw_cluster.json に保存
+    # 6. 保存
     cluster_out_dir.mkdir(parents=True, exist_ok=True)
     with open(cluster_file_path, "w", encoding="utf-8") as f:
         json.dump(cluster_output, f, ensure_ascii=False, indent=2)
     print(f"\n[Saved] クラスタまとめファイル: {cluster_file_path}")
 
-    # 7. 各特許のJSONファイルに cluster_id を追記して上書き保存
+    # 7. 各特許JSON更新
     print("各特許のJSONファイルに所属クラスタIDを追記中...")
     updates_by_file = {}
     for item in all_keywords:

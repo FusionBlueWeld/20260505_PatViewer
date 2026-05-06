@@ -4,7 +4,10 @@ import time
 from pathlib import Path
 from src.patent_extractor import extract_text_from_pdf
 from src.patent_analyzer import analyze_patent_with_llm, get_embedding
-from src.cluster_analyzer import perform_clustering  # ★追加
+from src.cluster_analyzer import perform_clustering
+from src.obsidian_mapping import generate_obsidian_mapping
+# ★追加: 3Dグラフ用データジェネレーター
+from src.graph_generator import generate_3d_graph_data
 
 def main():
     base_dir = Path(__file__).resolve().parent
@@ -90,13 +93,21 @@ def main():
     # ==========================================
     # STEP 4: クラスタリングの実行
     # ==========================================
-    # kw_cluster.json がまだ存在しない場合のみ実行
-    # (再計算したい場合は output/cluster/kw_cluster.json を削除してから実行)
     cluster_file = output_cluster_dir / "kw_cluster.json"
     if not cluster_file.exists():
         perform_clustering(output_root=output_patents_dir, cluster_out_dir=output_cluster_dir)
     else:
         print("\n[Info] クラスタリングは既に完了しています (kw_cluster.json が存在します)。")
+
+    # ==========================================
+    # STEP 5: Obsidian用マッピングの生成        
+    # ==========================================
+    generate_obsidian_mapping()
+
+    # ==========================================
+    # STEP 6: 3Dグラフビュー用JSONの生成 (★新規)       
+    # ==========================================
+    generate_3d_graph_data()
 
 if __name__ == "__main__":
     main()
