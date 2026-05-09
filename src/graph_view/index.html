@@ -11,8 +11,15 @@
             position: absolute; top: 15px; left: 15px; color: white;
             font-family: sans-serif; background: rgba(0,0,0,0.8); padding: 15px;
             border-radius: 8px; border: 1px solid #444; max-width: 350px;
-            pointer-events: none; z-index: 10;
+            pointer-events: none; z-index: 10; max-height: 80vh; overflow-y: auto;
+            transition: border-color 0.2s; /* ホールド時の枠線アニメーション */
         }
+        
+        /* スクロールバーのスタイル（見やすく調整） */
+        .info-panel::-webkit-scrollbar { width: 8px; }
+        .info-panel::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); border-radius: 4px; }
+        .info-panel::-webkit-scrollbar-thumb { background: #666; border-radius: 4px; }
+        .info-panel::-webkit-scrollbar-thumb:hover { background: #888; }
         
         .legend {
             position: absolute; bottom: 15px; left: 15px; color: white;
@@ -27,6 +34,13 @@
         .legend-item:hover { background: rgba(255,255,255,0.1); }
         .color-box { width: 16px; height: 16px; margin-right: 12px; border-radius: 50%; }
         
+        #reset-focus-btn {
+            width: 100%; padding: 6px; background: #333; color: white;
+            border: 1px solid #555; border-radius: 4px; cursor: pointer;
+            font-size: 12px; transition: background 0.2s;
+        }
+        #reset-focus-btn:hover { background: #555; }
+        
         .controls {
             position: absolute; bottom: 15px; right: 15px; color: white;
             font-family: sans-serif; background: rgba(0,0,0,0.8); padding: 15px;
@@ -37,6 +51,10 @@
         h3 { margin-top: 0; margin-bottom: 10px; font-size: 18px; border-bottom: 1px solid #555; padding-bottom: 5px;}
         p { margin: 5px 0; font-size: 14px; line-height: 1.4;}
         input[type=range] { width: 150px; cursor: pointer; }
+        
+        #node-relations { margin-top: 15px; font-size: 12px; border-top: 1px solid #555; padding-top: 10px; }
+        .relation-item { margin-bottom: 10px; background: rgba(255,255,255,0.1); padding: 6px; border-radius: 4px;}
+        .relation-target { color: #ffeb3b; font-weight: bold; display: block; margin-bottom: 3px;}
     </style>
     <!-- 3D Force Graph Library -->
     <script src="https://unpkg.com/3d-force-graph"></script>
@@ -48,9 +66,16 @@
         <h3>Node Info</h3>
         <p id="node-type" style="color: #aaa; font-weight: bold;"></p>
         <p id="node-name">ノードにホバーしてください</p>
+        <!-- ★説明文にShiftキーの操作を追加しました -->
+        <p style="color: #888; font-size: 11px; margin-top: 10px;">
+            ※ 左クリック：関連ツリーを表示<br>
+            ※ 右クリック：カメラ移動（フォーカス）<br>
+            <strong style="color:#ffeb3b;">※ Shiftキー長押し：パネル固定＆スクロール</strong>
+        </p>
+        
+        <div id="node-relations"></div>
     </div>
     
-    <!-- 凡例 (クリックで透過トグル) -->
     <div class="legend">
         <div style="font-size:12px; color:#aaa; margin-bottom:8px;">※クリックでレイヤー強調</div>
         <div class="legend-item" data-group="3">
@@ -62,14 +87,15 @@
         <div class="legend-item" data-group="1">
             <div class="color-box" style="background: #4dff4d;"></div>Patent (具体・下層)
         </div>
+        <div style="margin-top: 10px; border-top: 1px solid #555; padding-top: 10px;">
+            <button id="reset-focus-btn">アテンション解除</button>
+        </div>
     </div>
     
-    <!-- 操作パネル (レイヤー間距離) -->
     <div class="controls">
         <label for="z-distance-slider" style="font-size: 14px; margin-bottom: 8px;">
             レイヤー間距離: <span id="z-dist-val">500</span>
         </label>
-        <!-- 最大値を大きく拡張 -->
         <input type="range" id="z-distance-slider" min="0" max="2400" value="500" step="20">
     </div>
 
