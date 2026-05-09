@@ -24,12 +24,13 @@ def main():
         print("PDFファイルが見つかりませんでした。")
         return
 
-    print(f"合計 {len(pdf_files)} 件の特許データ処理を開始します。")
+    print(f"合計 {len(pdf_files)} 件の特許データ処理を開始します。\n")
 
     # ==========================================
     # PDF 抽出・LLM解析・Embedding ループ
     # ==========================================
-    for pdf_path in pdf_files:
+    total_files = len(pdf_files)
+    for idx, pdf_path in enumerate(pdf_files, start=1):
         pdf_stem = pdf_path.stem
         category_name = pdf_path.parent.name
         
@@ -43,20 +44,23 @@ def main():
 
         # --- STEP 1: テキスト抽出 ---
         if not txt_file_path.exists():
-            print(f"\nProcessing (Text): {pdf_path.name}")
+            print(f"\n[{idx}/{total_files}] Processing (Text): {pdf_path.name} [{category_name}]")
             try:
                 extracted_text = extract_text_from_pdf(pdf_path)
                 txt_file_path.write_text(extracted_text, encoding="utf-8")
+                print("    [Done] テキスト抽出")
             except Exception as e:
                 print(f"    [Skip] テキスト抽出失敗: {e}")
                 continue
         else:
+            print(f"[{idx}/{total_files}] スキップ: {pdf_path.name} [{category_name}]")
             extracted_text = txt_file_path.read_text(encoding="utf-8")
+
+        # テキスト抽出完了時点のタイムスタンプ
+        process_start_time = time.perf_counter()
 
         # --- STEP 2: LLM解析とEmbedding ---
         if not json_file_path.exists():
-            print(f"Processing (LLM & Embed): {pdf_stem} [{category_name}]")
-            
             # 1. キーワード抽出（最大10個）
             analysis_results = analyze_patent_with_llm(extracted_text)
 
@@ -86,6 +90,8 @@ def main():
 
         # --- STEP 3: インターバル処理 ---
         if processed_this_turn:
+            elapsed = time.perf_counter() - process_start_time
+            print(f"    [Elapsed] テキスト抽出から待機まで: {elapsed:.2f}秒")
             print(f"    [Sleep] クールダウンのため90秒待機します...")
             time.sleep(90)
 
