@@ -98,12 +98,18 @@ def main():
 
     # ==========================================
     # STEP 4: クラスタリングの実行
+    # ★修正: 分割形式のクラスタファイル群(kw*.json) + cluster_relations.json
+    #         の存在をもってスキップ判定する
     # ==========================================
-    cluster_file = output_cluster_dir / "kw_cluster.json"
-    if not cluster_file.exists():
-        perform_clustering(output_root=output_patents_dir, cluster_out_dir=output_cluster_dir)
+    existing_cluster_files = list(output_cluster_dir.glob("kw*.json"))
+    relations_file = output_cluster_dir / "cluster_relations.json"
+    if existing_cluster_files and relations_file.exists():
+        print("\n[Info] クラスタリングは既に完了しています "
+              f"(kw*.json: {len(existing_cluster_files)}件, "
+              f"cluster_relations.json: 存在)。")
+        print(f"       再計算したい場合は '{output_cluster_dir}' 内のファイルを削除してください。")
     else:
-        print("\n[Info] クラスタリングは既に完了しています (kw_cluster.json が存在します)。")
+        perform_clustering(output_root=output_patents_dir, cluster_out_dir=output_cluster_dir)
 
     # ==========================================
     # STEP 5: Obsidian用マッピングの生成        
